@@ -415,9 +415,12 @@ function setLoading(btn, loading) {
 }
 
 async function api(payload) {
-  const res  = await fetch(API_URL, {
-    method: "POST",
-    body: JSON.stringify(payload)
+  // Apps Script gestisce GET senza problemi di CORS/redirect;
+  // i POST vengono reindirizzati da Google e fetch li perde.
+  const params = new URLSearchParams(payload).toString();
+  const res = await fetch(API_URL + "?" + params, {
+    method: "GET",
+    redirect: "follow"
   });
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || "Errore sconosciuto");
