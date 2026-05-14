@@ -362,7 +362,7 @@
 // ══════════════════════════════════════════════════════════════
 // ⚙️  CONFIGURA QUI l'URL del tuo Google Apps Script
 // ══════════════════════════════════════════════════════════════
-const API_URL = "https://script.google.com/macros/s/AKfycby_0gRKvDLYiudbOnFvRI34FXk1ymvLvtusNlZYhSPSWrSX_Ts2M8XOkWV0WSHkreQY/exec";
+const API_URL = "INSERISCI_QUI_URL_APPS_SCRIPT";
 // ══════════════════════════════════════════════════════════════
 
 // ── State ──
@@ -415,16 +415,30 @@ function setLoading(btn, loading) {
 }
 
 async function api(payload) {
-  // Apps Script gestisce GET senza problemi di CORS/redirect;
-  // i POST vengono reindirizzati da Google e fetch li perde.
   const params = new URLSearchParams(payload).toString();
   const res = await fetch(API_URL + "?" + params, {
     method: "GET",
     redirect: "follow"
   });
-  const data = await res.json();
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch(e) {
+    throw new Error("Risposta non valida dal server. Controlla che la Web App sia pubblicata correttamente.");
+  }
   if (!data.ok) throw new Error(data.error || "Errore sconosciuto");
   return data;
+}
+
+// ── Load status (con errore visibile) ──
+async function loadStatus() {
+  try {
+    const data = await api({ action: "status", email: currentEmail });
+    setStatus(data.isCheckedIn, data.lastTime);
+  } catch (e) {
+    toast("Errore status: " + e.message, "err");
+  }
 }
 
 // ── Clock ──
@@ -477,16 +491,6 @@ function setStatus(isIn, time) {
     statusTime.textContent = time ? "Uscita: " + time : "";
     btnCheckin.disabled   = false;
     btnCheckout.disabled  = true;
-  }
-}
-
-// ── Load status ──
-async function loadStatus() {
-  try {
-    const data = await api({ action: "status", email: currentEmail });
-    setStatus(data.isCheckedIn, data.lastTime);
-  } catch (e) {
-    console.warn("Status error:", e.message);
   }
 }
 
