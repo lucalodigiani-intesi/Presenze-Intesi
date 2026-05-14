@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Presenza</title>
+  <meta name="description" content="Registrazione presenze dipendenti" />
+  <meta name="theme-color" content="#0f0f0f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Presenza" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg:        #0c0c0c;
+      --surface:   #161616;
+      --border:    #2a2a2a;
+      --accent:    #e8ff47;
+      --accent2:   #47c8ff;
+      --danger:    #ff6b6b;
+      --text:      #f0f0f0;
+      --muted:     #666;
+      --radius:    4px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    /* ── LAYOUT ── */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .35s ease, transform .35s ease;
+      transform: translateY(12px);
+      overflow-y: auto;
+    }
+    .screen.active {
+      opacity: 1;
+      pointer-events: all;
+      transform: translateY(0);
+    }
+
+    /* ── LOGO ── */
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(2rem, 8vw, 3.2rem);
+      letter-spacing: -0.04em;
+      color: var(--accent);
+      margin-bottom: 4px;
+      line-height: 1;
+    }
+    .logo-sub {
+      font-size: 0.7rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 48px;
+    }
+
+    /* ── CARD ── */
+    .card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+    }
+
+    /* ── FORM ── */
+    .field { margin-bottom: 20px; }
+    label {
+      display: block;
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    input[type="email"],
+    input[type="password"],
+    input[type="number"] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 1rem;
+      padding: 12px 14px;
+      outline: none;
+      transition: border-color .2s;
+      -webkit-appearance: none;
+    }
+    input:focus { border-color: var(--accent); }
+    input[type="number"] { letter-spacing: 0.3em; }
+
+    /* ── CHECKBOX ── */
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+      cursor: pointer;
+    }
+    .check-row input[type="checkbox"] { display: none; }
+    .check-box {
+      width: 18px; height: 18px;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: border-color .2s, background .2s;
+    }
+    .check-row input:checked + .check-box {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .check-box svg { display: none; }
+    .check-row input:checked + .check-box svg { display: block; }
+    .check-label { font-size: 0.78rem; color: var(--muted); }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: var(--radius);
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.85rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity .2s, transform .1s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-primary   { background: var(--accent);  color: #0c0c0c; }
+    .btn-checkin   { background: var(--accent);  color: #0c0c0c; margin-bottom: 12px; }
+    .btn-checkout  { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+    .btn-logout    { background: transparent; color: var(--muted); border: 1px solid var(--border); font-size: 0.75rem; margin-top: 12px; }
+
+    /* ── STATUS BADGE ── */
+    .status-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 36px;
+    }
+    .status-dot {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      margin-bottom: 16px;
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color .4s, box-shadow .4s;
+    }
+    .status-dot.in  { border-color: var(--accent);  box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 30%, transparent); }
+    .status-dot.out { border-color: var(--muted); }
+    .status-dot svg { width: 32px; height: 32px; }
+
+    .status-label {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .status-label.in  { color: var(--accent); }
+    .status-label.out { color: var(--muted); }
+    .status-time { font-size: 0.7rem; color: var(--muted); margin-top: 4px; }
+
+    /* ── USER INFO ── */
+    .user-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .user-name { font-family: 'Syne', sans-serif; font-size: 0.9rem; font-weight: 600; }
+    .user-email { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+
+    /* ── CLOCK ── */
+    .clock {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 20px;
+      letter-spacing: 0.1em;
+    }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 20px;
+      border-radius: var(--radius);
+      font-size: 0.78rem;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .3s, transform .3s;
+      z-index: 999;
+      max-width: 90vw;
+      text-align: center;
+      white-space: normal;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.ok   { border-color: var(--accent); }
+    #toast.err  { border-color: var(--danger); color: var(--danger); }
+
+    /* ── SPINNER ── */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.2);
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── ERROR ── */
+    .error-msg {
+      font-size: 0.72rem;
+      color: var(--danger);
+      margin-top: -12px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .error-msg.show { display: block; }
+
+    /* ── SEPARATOR ── */
+    .sep {
+      width: 32px;
+      height: 1px;
+      background: var(--border);
+      margin: 0 auto 20px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════
+     SCHERMATA 1: LOGIN
+════════════════════════════════════ -->
+<div class="screen" id="screen-login">
+  <div class="logo">PRESENZA</div>
+  <div class="logo-sub">Sistema di rilevazione</div>
+
+  <div class="card">
+    <div class="field">
+      <label for="inp-email">Email</label>
+      <input type="email" id="inp-email" placeholder="nome@azienda.it" autocomplete="email" />
+    </div>
+    <div class="field">
+      <label for="inp-pin">PIN</label>
+      <input type="password" id="inp-pin" placeholder="••••" maxlength="8" inputmode="numeric" autocomplete="current-password" />
+    </div>
+    <p class="error-msg" id="login-error">Credenziali non valide.</p>
+
+    <label class="check-row" for="chk-remember">
+      <input type="checkbox" id="chk-remember" />
+      <span class="check-box">
+        <svg viewBox="0 0 12 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <polyline points="1,5 4.5,8.5 11,1" stroke="#0c0c0c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span class="check-label">Memorizza credenziali</span>
+    </label>
+
+    <button class="btn btn-primary" id="btn-login">Accedi</button>
+  </div>
+
+  <div class="clock" id="clock-login"></div>
+</div>
+
+<!-- ════════════════════════════════════
+     SCHERMATA 2: DASHBOARD
+════════════════════════════════════ -->
+<div class="screen" id="screen-dashboard">
+  <div class="card">
+    <div class="user-row">
+      <div>
+        <div class="user-name" id="dash-name">—</div>
+        <div class="user-email" id="dash-email">—</div>
+      </div>
+      <div style="font-size:0.65rem;letter-spacing:.15em;color:var(--muted);text-transform:uppercase;" id="dash-date"></div>
+    </div>
+
+    <div class="status-wrap">
+      <div class="status-dot out" id="status-dot">
+        <!-- icona OUT -->
+        <svg id="icon-out" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="16" cy="16" r="7" stroke="#555" stroke-width="2"/>
+          <line x1="16" y1="6" x2="16" y2="4" stroke="#555" stroke-width="2" stroke-linecap="round"/>
+          <line x1="16" y1="28" x2="16" y2="26" stroke="#555" stroke-width="2" stroke-linecap="round"/>
+          <line x1="6" y1="16" x2="4" y2="16" stroke="#555" stroke-width="2" stroke-linecap="round"/>
+          <line x1="28" y1="16" x2="26" y2="16" stroke="#555" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <!-- icona IN -->
+        <svg id="icon-in" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:none">
+          <circle cx="16" cy="16" r="7" stroke="#e8ff47" stroke-width="2"/>
+          <line x1="16" y1="6" x2="16" y2="4" stroke="#e8ff47" stroke-width="2" stroke-linecap="round"/>
+          <line x1="16" y1="28" x2="16" y2="26" stroke="#e8ff47" stroke-width="2" stroke-linecap="round"/>
+          <line x1="6" y1="16" x2="4" y2="16" stroke="#e8ff47" stroke-width="2" stroke-linecap="round"/>
+          <line x1="28" y1="16" x2="26" y2="16" stroke="#e8ff47" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="16" cy="16" r="3" fill="#e8ff47"/>
+        </svg>
+      </div>
+      <div class="status-label out" id="status-label">NON IN SEDE</div>
+      <div class="status-time" id="status-time"></div>
+    </div>
+
+    <div class="sep"></div>
+
+    <button class="btn btn-checkin" id="btn-checkin">Check-In</button>
+    <button class="btn btn-checkout" id="btn-checkout">Check-Out</button>
+    <button class="btn btn-logout" id="btn-logout">Esci</button>
+  </div>
+
+  <div class="clock" id="clock-dash"></div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// ⚙️  CONFIGURA QUI l'URL del tuo Google Apps Script
+// ══════════════════════════════════════════════════════════════
+const API_URL = "https://script.google.com/a/macros/intesisrl.it/s/AKfycbzW3ynsMuLdRsNaXowjck1uNgszM4yi8oa7vOVomG58EC5hP-FKxaxUsLZ76JcWadfn/exec";
+// ══════════════════════════════════════════════════════════════
+
+// ── State ──
+let currentEmail = "";
+let currentName  = "";
+let clockTimer   = null;
+
+// ── DOM refs ──
+const screens    = document.querySelectorAll(".screen");
+const inpEmail   = document.getElementById("inp-email");
+const inpPin     = document.getElementById("inp-pin");
+const chkRemember= document.getElementById("chk-remember");
+const btnLogin   = document.getElementById("btn-login");
+const loginError = document.getElementById("login-error");
+const dashName   = document.getElementById("dash-name");
+const dashEmail  = document.getElementById("dash-email");
+const dashDate   = document.getElementById("dash-date");
+const statusDot  = document.getElementById("status-dot");
+const statusLabel= document.getElementById("status-label");
+const statusTime = document.getElementById("status-time");
+const iconIn     = document.getElementById("icon-in");
+const iconOut    = document.getElementById("icon-out");
+const btnCheckin = document.getElementById("btn-checkin");
+const btnCheckout= document.getElementById("btn-checkout");
+const btnLogout  = document.getElementById("btn-logout");
+
+// ── Utility ──
+function showScreen(id) {
+  screens.forEach(s => s.classList.remove("active"));
+  document.getElementById("screen-" + id).classList.add("active");
+}
+
+function toast(msg, type = "ok") {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.className = "show " + type;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className = "", 3000);
+}
+
+function setLoading(btn, loading) {
+  if (loading) {
+    btn._orig = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner"></span> Attendi...';
+    btn.disabled = true;
+  } else {
+    btn.innerHTML = btn._orig || btn.innerHTML;
+    btn.disabled = false;
+  }
+}
+
+async function api(payload) {
+  const res  = await fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || "Errore sconosciuto");
+  return data;
+}
+
+// ── Clock ──
+function updateClock() {
+  const now = new Date();
+  const t   = now.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const d   = now.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+  document.getElementById("clock-login").textContent = t;
+  document.getElementById("clock-dash").textContent  = t;
+  dashDate.textContent = d;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Persist credentials ──
+function loadSaved() {
+  const saved = JSON.parse(localStorage.getItem("presenza_creds") || "{}");
+  if (saved.email && saved.pin) {
+    inpEmail.value    = saved.email;
+    inpPin.value      = saved.pin;
+    chkRemember.checked = true;
+  }
+}
+
+function saveCreds(email, pin) {
+  localStorage.setItem("presenza_creds", JSON.stringify({ email, pin }));
+}
+
+function clearCreds() {
+  localStorage.removeItem("presenza_creds");
+}
+
+// ── Status UI ──
+function setStatus(isIn, time) {
+  if (isIn) {
+    statusDot.className   = "status-dot in";
+    statusLabel.className = "status-label in";
+    statusLabel.textContent = "IN SEDE";
+    iconIn.style.display  = "block";
+    iconOut.style.display = "none";
+    statusTime.textContent = time ? "Dalle " + time : "";
+    btnCheckin.disabled   = true;
+    btnCheckout.disabled  = false;
+  } else {
+    statusDot.className   = "status-dot out";
+    statusLabel.className = "status-label out";
+    statusLabel.textContent = "NON IN SEDE";
+    iconIn.style.display  = "none";
+    iconOut.style.display = "block";
+    statusTime.textContent = time ? "Uscita: " + time : "";
+    btnCheckin.disabled   = false;
+    btnCheckout.disabled  = true;
+  }
+}
+
+// ── Load status ──
+async function loadStatus() {
+  try {
+    const data = await api({ action: "status", email: currentEmail });
+    setStatus(data.isCheckedIn, data.lastTime);
+  } catch (e) {
+    console.warn("Status error:", e.message);
+  }
+}
+
+// ── Login ──
+btnLogin.addEventListener("click", async () => {
+  const email = inpEmail.value.trim();
+  const pin   = inpPin.value.trim();
+  loginError.classList.remove("show");
+
+  if (!email || !pin) {
+    loginError.textContent = "Inserisci email e PIN.";
+    loginError.classList.add("show");
+    return;
+  }
+
+  setLoading(btnLogin, true);
+  try {
+    const data = await api({ action: "login", email, pin });
+    currentEmail = email;
+    currentName  = data.displayName || email;
+
+    if (chkRemember.checked) saveCreds(email, pin);
+    else clearCreds();
+
+    dashName.textContent  = currentName;
+    dashEmail.textContent = currentEmail;
+
+    showScreen("dashboard");
+    await loadStatus();
+  } catch (e) {
+    loginError.textContent = e.message;
+    loginError.classList.add("show");
+  } finally {
+    setLoading(btnLogin, false);
+  }
+});
+
+// ── Check-In ──
+btnCheckin.addEventListener("click", async () => {
+  setLoading(btnCheckin, true);
+  try {
+    const data = await api({ action: "checkin", email: currentEmail });
+    toast(data.message, "ok");
+    await loadStatus();
+  } catch (e) {
+    toast(e.message, "err");
+  } finally {
+    setLoading(btnCheckin, false);
+  }
+});
+
+// ── Check-Out ──
+btnCheckout.addEventListener("click", async () => {
+  setLoading(btnCheckout, true);
+  try {
+    const data = await api({ action: "checkout", email: currentEmail });
+    toast(data.message, "ok");
+    await loadStatus();
+  } catch (e) {
+    toast(e.message, "err");
+  } finally {
+    setLoading(btnCheckout, false);
+  }
+});
+
+// ── Logout ──
+btnLogout.addEventListener("click", () => {
+  currentEmail = "";
+  currentName  = "";
+  inpPin.value = "";
+  if (!chkRemember.checked) {
+    inpEmail.value = "";
+    clearCreds();
+  }
+  setStatus(false, null);
+  showScreen("login");
+});
+
+// ── Enter key ──
+inpPin.addEventListener("keydown", e => { if (e.key === "Enter") btnLogin.click(); });
+inpEmail.addEventListener("keydown", e => { if (e.key === "Enter") inpPin.focus(); });
+
+// ── Init ──
+loadSaved();
+showScreen("login");
+
+// ── Service Worker registration ──
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>
